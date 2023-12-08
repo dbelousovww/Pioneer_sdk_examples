@@ -1,0 +1,58 @@
+import cv2
+from pioneer_sdk import Pioneer, Camera
+import numpy as np
+
+def detect_markers(frame, aruco_dict, aruco_parameters):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    corners, ids, _ = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_parameters)
+    aruco.drawDetectedMarkers(frame, corners)
+    return corners, ids
+
+def main():
+    aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_50)
+    aruco_parameters = cv2.aruco.DetectorParameters_create()
+
+    pioneer = Pioneer()
+    pioneer.arm()
+    pioneer.takeoff()
+
+    while True:
+        frame = pioneer.get_frame()
+        corners, ids = detect_markers(frame, aruco_dict, aruco_parameters)
+
+        if ids is not None and 1 in ids:
+            # Маркер с номером 1 обнаружен
+            index_1 = np.where(ids == 1)[0][0]
+            center_1 = np.mean(corners[index_1][0], axis=0)
+            x_center_1, y_center_1 = center_1[0], center_1[1]
+
+            # Центрирование относительно маркера 1
+            if abs(x_center_1 - frame.shape[1] / 2) > 5:
+                vy = 0.5 if x_center_1 < frame.shape[1] / 2 else -0.5
+                pioneer.set_manual_speed(vx=0, vy=vy, vz=0, yaw_rate=0)
+            else:
+                pioneer.set_manual_speed(vx=0, vy=0, vz=0, yaw_rate=0)
+                break
+
+    while True:
+        frame = pioneer.get_frame()
+        corners, ids = detect_markers(frame, aruco_dict, aruco_parameters)
+
+        if ids is not None and 2 in ids:
+            # Маркер с номером 2 обнаружен
+            index_2 = np.where(ids == 2)[0][0]
+            center_2 = np.mean(corners[index_2][0], axis=0)
+            x_center_2, y_center_2 = center_2[0], center_2[1]
+
+            # Центрирование относительно маркера 2
+            if abs(x_center_2 - frame.shape[1] / 2) > 5:
+                vy = -0.5 if x_center_2 < frame.shape[1] / 2 else 0.5
+                pioneer.set_manual_speed(vx=0, vy=vy, vz=0, yaw_rate=0)
+            else:
+                pioneer.set_manual_speed(vx=0, vy=0, vz=0, yaw_rate=0)
+                break
+
+    pioneer.land()
+
+if __name__ == '__main__':
+    main()
