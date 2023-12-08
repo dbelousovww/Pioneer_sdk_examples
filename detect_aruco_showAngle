@@ -49,20 +49,19 @@ if __name__ == "__main__":
                 # Отображение угла поворота относительно дрона
                 cv2.putText(frame, f'Yaw: {np.degrees(euler_angles[2]):.2f}, Pitch: {np.degrees(euler_angles[1]):.2f}, Roll: {np.degrees(euler_angles[0]):.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-                # Рисуем оси от Аруко маркера
+                # Рисуем оси в плоскости маркера
                 axis_length = 0.1
                 image_points, _ = cv2.projectPoints(
                     np.array([(0, 0, 0), (axis_length, 0, 0), (0, axis_length, 0), (0, 0, axis_length)]),
                     rvecs, tvecs, camera_matrix, dist_coeffs
                 )
-                frame = cv2.line(frame, tuple(map(int, image_points[0].ravel())), tuple(map(int, image_points[1].ravel())), (0, 0, 255), 2)  # X-axis (red)
-                frame = cv2.line(frame, tuple(map(int, image_points[0].ravel())), tuple(map(int, image_points[2].ravel())), (0, 255, 0), 2)  # Y-axis (green)
-                frame = cv2.line(frame, tuple(map(int, image_points[0].ravel())), tuple(map(int, image_points[3].ravel())), (255, 0, 0), 2)  # Z-axis (blue)
 
-                # Рисуем фиксированную вертикальную ось
-                vertical_axis_length = 0.2
-                vertical_axis_end_point = (int(frame.shape[1] / 2), int(frame.shape[0] / 2 - vertical_axis_length * 100))
-                frame = cv2.line(frame, (int(frame.shape[1] / 2), int(frame.shape[0] / 2)), vertical_axis_end_point, (255, 255, 255), 2)
+                # Определение центра маркера
+                marker_center = np.mean(corners[0], axis=0)
+
+                # Отображение осей в плоскости маркера
+                frame = cv2.line(frame, tuple(map(int, marker_center[0])), tuple(map(int, image_points[1][0])), (0, 0, 255), 2)  # X-axis (red)
+                frame = cv2.line(frame, tuple(map(int, marker_center[0])), tuple(map(int, image_points[2][0])), (0, 255, 0), 2)  # Y-axis (green)
 
             cv2.imshow("video", frame)
 
