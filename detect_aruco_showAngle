@@ -1,0 +1,72 @@
+import cv2
+import numpy as np
+from pioneer_sdk import Camera
+import transforms3d as t3d
+
+def load_coefficients(path):
+    cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+    camera_matrix = cv_file.getNode("mtx").mat()
+    dist_coeffs = cv_file.getNode("dist").mat()
+    cv_file.release()
+    return camera_matrix, dist_coeffs
+
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_50)
+aruco_params = cv2.aruco.DetectorParameters()
+aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
+
+camera_matrix, dist_coeffs = load_coefficients("data.yml")
+
+size_of_marker = 0.05
+points_of_marker = np.array([
+    (size_of_marker / 2, -size_of_marker / 2, 0),
+    (-size_of_marker / 2, -size_of_marker / 2, 0),
+    (-size_of_marker / 2, size_of_marker / 2, 0),
+    (size_of_marker / 2, size_of_marker / 2, 0),
+])
+
+def get_euler_angles(rotation_matrix):
+    # Используем библиотеку transforms3d для преобразования матрицы поворота в углы Эйлера
+    euler = t3d.euler.mat2euler(rotation_matrix, axes='sxyz')
+    return euler
+
+if __name__ == "__main__":
+    camera = Camera()
+    while True:
+        frame = camera.get_cv_frame()
+        if frame is not None:
+            corners, ids, rejected = aruco_detector.detectMarkers(frame)
+            if corners:
+                success, rvecs, tvecs = cv2.solvePnP(
+                    points_of_marker, corners[0], camera_matrix, dist_coeffs
+                )
+
+                # Преобразование вектора rvecs в матрицу поворота
+                rotation_matrix, _ = cv2.Rodrigues(rvecs)
+
+                # Извлечение углов Эйлера из матрицы поворота
+                euler_angles = get_euler_angles(rotation_matrix)
+
+                # Отображение угла поворота относительно дрона
+                cv2.putText(frame, f'Yaw: {np.degrees(euler_angles[2]):.2f}, Pitch: {np.degrees(euler_angles[1]):.2f}, Roll: {np.degrees(euler_angles[0]):.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+                # Рисуем оси от Аруко маркера
+                axis_length = 0.1
+                image_points, _ = cv2.projectPoints(
+                    np.array([(0, 0, 0), (axis_length, 0, 0), (0, axis_length, 0), (0, 0, axis_length)]),
+                    rvecs, tvecs, camera_matrix, dist_coeffs
+                )
+                frame = cv2.line(frame, tuple(map(int, image_points[0].ravel())), tuple(map(int, image_points[1].ravel())), (0, 0, 255), 2)  # X-axis (red)
+                frame = cv2.line(frame, tuple(map(int, image_points[0].ravel())), tuple(map(int, image_points[2].ravel())), (0, 255, 0), 2)  # Y-axis (green)
+                frame = cv2.line(frame, tuple(map(int, image_points[0].ravel())), tuple(map(int, image_points[3].ravel())), (255, 0, 0), 2)  # Z-axis (blue)
+
+                # Рисуем фиксированную вертикальную ось
+                vertical_axis_length = 0.2
+                vertical_axis_end_point = (int(frame.shape[1] / 2), int(frame.shape[0] / 2 - vertical_axis_length * 100))
+                frame = cv2.line(frame, (int(frame.shape[1] / 2), int(frame.shape[0] / 2)), vertical_axis_end_point, (255, 255, 255), 2)
+
+            cv2.imshow("video", frame)
+
+        if cv2.waitKey(1) == 27:
+            break
+
+    cv2.destroyAllWindows()
