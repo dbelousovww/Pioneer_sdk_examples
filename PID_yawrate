@@ -1,0 +1,92 @@
+import cv2
+import numpy as np
+from pioneer_sdk import Pioneer, Camera
+
+def load_coefficients(path):
+    cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
+    camera_matrix = cv_file.getNode("mtx").mat()
+    dist_coeffs = cv_file.getNode("dist").mat()
+    cv_file.release()
+    return camera_matrix, dist_coeffs
+
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_50)
+aruco_params = cv2.aruco.DetectorParameters()
+aruco_detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
+
+camera_matrix, dist_coeffs = load_coefficients("data.yml")
+
+size_of_marker = 0.05
+points_of_marker = np.array([
+    (size_of_marker / 2, -size_of_marker / 2, 0),
+    (-size_of_marker / 2, -size_of_marker / 2, 0),
+    (-size_of_marker / 2, size_of_marker / 2, 0),
+    (size_of_marker / 2, size_of_marker / 2, 0),
+])
+
+def calculate_yaw_error(target_yaw, current_yaw):
+    # Рассчитываем ошибку угла поворота
+    error = target_yaw - current_yaw
+
+    # Нормализация ошибки для удобства использования в PID
+    if error > np.pi:
+        error -= 2 * np.pi
+    elif error < -np.pi:
+        error += 2 * np.pi
+
+    return error
+
+class PIDController:
+    def __init__(self, kp, ki, kd):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.prev_error = 0
+        self.integral = 0
+
+    def update(self, error):
+        # Обновление PID-регулятора
+        self.integral += error
+        derivative = error - self.prev_error
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        self.prev_error = error
+        return output
+
+if __name__ == "__main__":
+    pioneer = Pioneer()
+    camera = Camera()
+
+    target_yaw = 0  # Угол, к которому стремимся (может быть настраиваемым параметром)
+
+    # Настройка PID-регулятора
+    pid_controller = PIDController(kp=0.5, ki=0.01, kd=0.1)
+
+    while True:
+        frame = camera.get_cv_frame()
+        if frame is not None:
+            corners, ids, rejected = aruco_detector.detectMarkers(frame)
+            if corners:
+                success, rvecs, tvecs = cv2.solvePnP(
+                    points_of_marker, corners[0], camera_matrix, dist_coeffs
+                )
+
+                # Получаем угол поворота вокруг оси z (yaw)
+                current_yaw = rvecs[2][0]
+
+                # Рассчитываем ошибку угла поворота
+                yaw_error = calculate_yaw_error(target_yaw, current_yaw)
+
+                # Применяем PID-регулятор для управления угловой скоростью
+                yaw_rate = pid_controller.update(yaw_error)
+
+                # Отображение угла поворота относительно дрона
+                cv2.putText(frame, f'Yaw Rotation: {np.degrees(current_yaw):.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+                # Применяем угловую скорость к пионеру
+                pioneer.set_manual_speed(0, 0, 0, yaw_rate)
+
+            cv2.imshow("video", frame)
+
+        if cv2.waitKey(1) == 27:
+            break
+
+    cv2.destroyAllWindows()
