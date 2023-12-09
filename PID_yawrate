@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 from pioneer_sdk import Pioneer, Camera
 
+pioneer = Pioneer()
+camera = Camera()
+
 def load_coefficients(path):
     cv_file = cv2.FileStorage(path, cv2.FILE_STORAGE_READ)
     camera_matrix = cv_file.getNode("mtx").mat()
@@ -46,34 +49,47 @@ def calculate_yaw_error(target_yaw, current_yaw):
         error += 2 * np.pi
     return error
 
+def go_to_start_point():
+    input(" ARM?")
+    pioneer.arm()
+    pioneer.takeoff()
+    pioneer.go_to_local_point(x=0, y=0, z=1.3, yaw=0)
+    while not pioneer.point_reached():
+        pass
+
 if __name__ == "__main__":
-    pioneer = Pioneer()
-    camera = Camera()
+
 
     # Поднимаем Pioneer Mini на высоту 1.2 метра
-    pioneer.go_to_local_point(x=0, y=0, z=1.2, yaw=0)
+    go_to_start_point()
 
     target_yaw = 0
-    pid_controller = PIDController(kp=0.5, ki=0.01, kd=0.1)
+    pid_controller = PIDController(kp=0.8, ki=0.02, kd=0.05)
 
+    pioneer.go_to_local_point_body_fixed(x=0,y=0,z=1.2,yaw=0)
     while True:
-        frame = camera.get_cv_frame()
-        if frame is not None:
-            corners, ids, rejected = aruco_detector.detectMarkers(frame)
-            if corners:
-                success, rvecs, tvecs = cv2.solvePnP(
-                    points_of_marker, corners[0], camera_matrix, dist_coeffs
-                )
+        try:
+            frame = camera.get_cv_frame()
+            if frame is not None:
+                corners, ids, rejected = aruco_detector.detectMarkers(frame)
+                if corners:
+                    success, rvecs, tvecs = cv2.solvePnP(
+                        points_of_marker, corners[0], camera_matrix, dist_coeffs
+                    )
 
-                current_yaw = rvecs[2][0]
-                yaw_error = calculate_yaw_error(target_yaw, current_yaw)
-                yaw_rate = pid_controller.update(yaw_error)
+                    current_yaw = rvecs[2][0]
+                    yaw_error = calculate_yaw_error(target_yaw, current_yaw)
+                    yaw_rate = pid_controller.update(yaw_error)
 
-                cv2.putText(frame, f'Yaw Rotation: {np.degrees(current_yaw):.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    cv2.putText(frame, f'Yaw Rotation: {np.degrees(current_yaw):.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-                pioneer.set_manual_speed_body_fixed(vx=0, vy=0, vz=0, yaw_rate=yaw_rate)
+                    pioneer.set_manual_speed_body_fixed(vx=0, vy=0, vz=0, yaw_rate=yaw_rate)
 
-            cv2.imshow("video", frame)
+                cv2.imshow("video", frame)
+        except KeyboardInterrupt:
+            pioneer.land()
+            pioneer.disarm()
+            del pioneer
 
         key = cv2.waitKey(1)
         if key == 27:  # Esc key
