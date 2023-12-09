@@ -23,14 +23,6 @@ points_of_marker = np.array([
     (size_of_marker / 2, size_of_marker / 2, 0),
 ])
 
-def calculate_yaw_error(target_yaw, current_yaw):
-    error = target_yaw - current_yaw
-    if error > np.pi:
-        error -= 2 * np.pi
-    elif error < -np.pi:
-        error += 2 * np.pi
-    return error
-
 class PIDController:
     def __init__(self, kp, ki, kd):
         self.kp = kp
@@ -45,6 +37,14 @@ class PIDController:
         output = self.kp * error + self.ki * self.integral + self.kd * derivative
         self.prev_error = error
         return output
+
+def calculate_yaw_error(target_yaw, current_yaw):
+    error = target_yaw - current_yaw
+    if error > np.pi:
+        error -= 2 * np.pi
+    elif error < -np.pi:
+        error += 2 * np.pi
+    return error
 
 if __name__ == "__main__":
     pioneer = Pioneer()
@@ -75,7 +75,9 @@ if __name__ == "__main__":
 
             cv2.imshow("video", frame)
 
-        if cv2.waitKey(1) == 27:
+        key = cv2.waitKey(1)
+        if key == 27:  # Esc key
             break
 
+    pioneer.land()
     cv2.destroyAllWindows()
