@@ -58,15 +58,10 @@ def go_to_start_point():
         pass
 
 if __name__ == "__main__":
-
-
     # Поднимаем Pioneer Mini на высоту 1.2 метра
     go_to_start_point()
-
     target_yaw = 0
     pid_controller = PIDController(kp=0.8, ki=0.02, kd=0.05)
-
-    pioneer.go_to_local_point_body_fixed(x=0,y=0,z=1.2,yaw=0)
     while True:
         try:
             frame = camera.get_cv_frame()
@@ -86,14 +81,13 @@ if __name__ == "__main__":
                     pioneer.set_manual_speed_body_fixed(vx=0, vy=0, vz=0, yaw_rate=yaw_rate)
 
                 cv2.imshow("video", frame)
+            key = cv2.waitKey(1)
+            if key == 27:  # Esc key
+                break
         except KeyboardInterrupt:
             pioneer.land()
             pioneer.disarm()
             del pioneer
-
-        key = cv2.waitKey(1)
-        if key == 27:  # Esc key
-            break
 
     pioneer.land()
     cv2.destroyAllWindows()
