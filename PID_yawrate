@@ -50,7 +50,7 @@ def calculate_yaw_error(target_yaw, current_yaw):
     return error
 
 def go_to_start_point():
-    input(" ARM?")
+    #input(" ARM?")
     pioneer.arm()
     pioneer.takeoff()
     pioneer.go_to_local_point(x=0, y=0, z=1.3, yaw=0)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     # Поднимаем Pioneer Mini на высоту 1.2 метра
     go_to_start_point()
     target_yaw = 0
-    pid_controller = PIDController(kp=0.8, ki=0.02, kd=0.05)
+    pid_controller = PIDController(kp=1.5, ki=0.01, kd=0)
     while True:
         try:
             frame = camera.get_cv_frame()
