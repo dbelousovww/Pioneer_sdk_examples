@@ -1,9 +1,13 @@
 #!/usr/bin/python3
 
 """
-Performs camera calibration using checkerboard pattern. Saves calibration
-values into a file.
+Performs camera calibration using checkerboard pattern. Saves calibration values into a file.
 More: https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
+
+- Скачать изображение для калибровки https://raw.githubusercontent.com/opencv/opencv/master/doc/pattern.png
+- Нажатием на клавишу «1» сделайте 10-15 фотографий шахматной доски с разных ракурсов, когда кадры сделаны, нажмите клавишу “Q” для выхода из режима фотографирования. 
+- Далее на экране будут появляться изображения с распознанными узлами сетки. Нажатием любой клавиши можно перейти к следующему изображению
+
 """
 
 import cv2
